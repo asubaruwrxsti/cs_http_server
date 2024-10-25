@@ -1,9 +1,10 @@
-﻿// Program.cs
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
 using ModularHttpServer.Services;
 using ModularHttpServer.Utilities;
 
@@ -11,28 +12,11 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        // Build configuration
-        var configuration = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .Build();
+        var host = CreateHostBuilder(args).Build();
 
-        var serviceProvider = new ServiceCollection()
-            .AddSingleton<IRequestHandler, Router>()
-            .AddLogging(configure => configure.AddConsole())
-            .AddSingleton<IConfiguration>(configuration)
-            .BuildServiceProvider();
-
-        var logger = serviceProvider.GetService<ILogger<HttpServer>>();
-        if (logger == null)
-        {
-            throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.LoggerServiceNotFound));
-        }
-
-        var router = serviceProvider.GetService<IRequestHandler>() as Router;
-        if (router == null)
-        {
-            throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.RequestHandlerServiceNotFound));
-        }
+        var logger = host.Services.GetRequiredService<ILogger<HttpServer>>();
+        var router = host.Services.GetRequiredService<IRequestHandler>() as Router;
+        var configuration = host.Services.GetRequiredService<IConfiguration>();
 
         var url = configuration["HttpServer:Url"];
         if (string.IsNullOrEmpty(url))
@@ -40,8 +24,66 @@ class Program
             throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.ServerUrlNotConfigured));
         }
 
-        var server = new HttpServer(new[] { url }, router, logger);
+        var server = host.Services.GetRequiredService<HttpServer>();
+
+        var hotReloadEnabled = configuration.GetValue<bool>("HotReload:Enabled");
+        if (hotReloadEnabled)
+        {
+            logger.LogInformation("Hot reload enabled. Watching for file changes...");
+            var fileProvider = new PhysicalFileProvider(AppContext.BaseDirectory);
+            var token = fileProvider.Watch("**/*.cs");
+
+            _ = token.RegisterChangeCallback(state =>
+            {
+                logger.LogInformation("File changes detected. Restarting server...");
+                host.StopAsync().Wait();
+                host.RunAsync().Wait();
+            }, null);
+        }
+        else
+        {
+            logger.LogInformation("Hot reload disabled.");
+        }
 
         await server.StartAsync();
+        await host.RunAsync();
     }
+
+    public static IHostBuilder CreateHostBuilder(string[] args) =>
+    Host.CreateDefaultBuilder(args)
+        .ConfigureServices((context, services) =>
+        {
+            // Load configuration
+            var configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+            _ = services.AddSingleton<IRequestHandler, Router>();
+            _ = services.AddSingleton<MiddlewarePipeline>();
+            _ = services.AddLogging(configure => configure.AddConsole());
+            _ = services.AddSingleton<IConfiguration>(configuration);
+            _ = services.AddSingleton<HttpServer>(sp =>
+            {
+                var logger = sp.GetRequiredService<ILogger<HttpServer>>();
+                var router = sp.GetRequiredService<IRequestHandler>() as Router;
+                var url = configuration["HttpServer:Url"];
+                if (string.IsNullOrEmpty(url))
+                {
+                    logger.LogError("Server URL is not configured.");
+                    throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.ServerUrlNotConfigured));
+                }
+                return new HttpServer(new[] { url }, router, logger);
+            });
+            // Configure middleware
+            _ = services.AddSingleton<LoggingMiddleware>();
+            _ = services.AddSingleton<MiddlewarePipeline>(sp =>
+            {
+                var pipeline = new MiddlewarePipeline();
+                pipeline.Use(next => async context =>
+                {
+                    var loggingMiddleware = sp.GetRequiredService<LoggingMiddleware>();
+                    await loggingMiddleware.InvokeAsync(context, next);
+                });
+                return pipeline;
+            });
+        });
 }

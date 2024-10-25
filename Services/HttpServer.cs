@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using ModularHttpServer.Utilities;
 
 namespace ModularHttpServer.Services
 {
@@ -14,31 +15,48 @@ namespace ModularHttpServer.Services
         public HttpServer(string[] prefixes, IRequestHandler requestHandler, ILogger<HttpServer> logger)
         {
             _listener = new HttpListener();
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
             foreach (var prefix in prefixes)
             {
+                if (!prefix.EndsWith("/"))
+                {
+                    throw new ArgumentException(ErrorCodes.GetErrorMessage(ErrorCodes.URIPrefixNotEndingInSlash));
+                }
                 _listener.Prefixes.Add(prefix);
+                _logger.LogInformation("Added prefix: {0}", prefix);
             }
             _requestHandler = requestHandler;
-            _logger = logger;
         }
 
         public async Task StartAsync()
         {
-            _listener.Start();
-            _logger.LogInformation("Listening for connections...");
-
-            while (true)
+            try
             {
-                try
+                _listener.Start();
+                _logger.LogInformation("Server started and listening for connections on the following prefixes:");
+                foreach (var prefix in _listener.Prefixes)
                 {
-                    var context = await _listener.GetContextAsync();
-                    _logger.LogInformation("Received request: {0}", context.Request.Url);
-                    await _requestHandler.HandleRequestAsync(context);
+                    _logger.LogInformation(prefix);
                 }
-                catch (Exception ex)
+
+                while (true)
                 {
-                    _logger.LogError(ex, "An error occurred while processing the request.");
+                    try
+                    {
+                        var context = await _listener.GetContextAsync();
+                        _logger.LogInformation("Received request: {0}", context.Request.Url);
+                        await _requestHandler.HandleRequestAsync(context);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, ErrorCodes.GetErrorMessage(ErrorCodes.ServerError));
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to start the server.");
             }
         }
 

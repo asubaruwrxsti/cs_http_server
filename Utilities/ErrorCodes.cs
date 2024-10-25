@@ -6,6 +6,9 @@ namespace ModularHttpServer.Utilities
         public const string RequestHandlerServiceNotFound = "ERR002";
         public const string ServerUrlNotConfigured = "ERR003";
         public const string NoHandlerForPath = "ERR004";
+        public const string URIPrefixNotEndingInSlash = "ERR006";
+        public const string MiddlewarePipelineNotFound = "ERR005";
+        public const string ServerError = "ERR007";
 
         public static string GetErrorMessage(string errorCode)
         {
@@ -15,6 +18,9 @@ namespace ModularHttpServer.Utilities
                 RequestHandlerServiceNotFound => "RequestHandler service not found.",
                 ServerUrlNotConfigured => "Server URL is not configured.",
                 NoHandlerForPath => "No handler found for path.",
+                URIPrefixNotEndingInSlash => "Only URI prefixes ending in '/' are allowed.",
+                MiddlewarePipelineNotFound => "Middleware pipeline not found.",
+                ServerError => "An error occurred while processing the request.",
                 _ => "Unknown error."
             };
         }

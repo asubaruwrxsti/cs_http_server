@@ -1,4 +1,3 @@
-// Services/Routing/Router.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,11 +14,13 @@ namespace ModularHttpServer.Services
     {
         private readonly Dictionary<string, IRouteHandler> _routes;
         private readonly ILogger<Router> _logger;
+        private readonly MiddlewarePipeline _pipeline;
 
-        public Router(ILogger<Router> logger)
+        public Router(ILogger<Router> logger, MiddlewarePipeline pipeline)
         {
             _routes = new Dictionary<string, IRouteHandler>();
             _logger = logger;
+            _pipeline = pipeline;
             RegisterRoutes();
         }
 
@@ -46,6 +47,8 @@ namespace ModularHttpServer.Services
             var path = context.Request.Url.AbsolutePath;
             if (_routes.TryGetValue(path, out var handler))
             {
+                var middlewareDelegate = _pipeline.Build();
+                await middlewareDelegate(context);
                 await handler.HandleRequestAsync(context);
             }
             else
