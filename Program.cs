@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using ModularHttpServer.Services;
 using ModularHttpServer.Utilities;
+using MiddlewarePipeline = ModularHttpServer.Services.MiddlewarePipeline; // Alias for MiddlewarePipeline
 
 class Program
 {
@@ -49,8 +50,9 @@ class Program
         await host.RunAsync();
     }
 
-    public static IHostBuilder CreateHostBuilder(string[] args) =>
-    Host.CreateDefaultBuilder(args)
+    public static IHostBuilder CreateHostBuilder(string[] args)
+    {
+        return Host.CreateDefaultBuilder(args)
         .ConfigureServices((context, services) =>
         {
             // Load configuration
@@ -71,10 +73,23 @@ class Program
                     logger.LogError("Server URL is not configured.");
                     throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.ServerUrlNotConfigured));
                 }
-                return new HttpServer(new[] { url }, router, logger);
+                return new HttpServer([url], router, logger);
             });
+
             // Configure middleware
             _ = services.AddSingleton<LoggingMiddleware>();
+            _ = services.AddSingleton<StaticFiles>(sp =>
+            {
+                var rootPath = configuration["StaticFiles:RootPath"];
+                if (!System.IO.Path.IsPathRooted(rootPath))
+                {
+                    rootPath = System.IO.Path.Combine(AppContext.BaseDirectory, rootPath);
+                }
+                var logger = sp.GetRequiredService<ILogger<StaticFiles>>();
+                return new StaticFiles(sp.GetRequiredService<MiddlewarePipeline>().Build(), rootPath, logger);
+            });
+
+            // Configure pipeline
             _ = services.AddSingleton<MiddlewarePipeline>(sp =>
             {
                 var pipeline = new MiddlewarePipeline();
@@ -83,7 +98,13 @@ class Program
                     var loggingMiddleware = sp.GetRequiredService<LoggingMiddleware>();
                     await loggingMiddleware.InvokeAsync(context, next);
                 });
+                // pipeline.Use(next => async context =>
+                // {
+                //     var staticFiles = sp.GetRequiredService<StaticFiles>();
+                //     await staticFiles.InvokeAsync(context);
+                // });
                 return pipeline;
             });
         });
+    }
 }
