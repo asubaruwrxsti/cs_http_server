@@ -1,53 +1,38 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileProviders;
 using ModularHttpServer.Services;
 using ModularHttpServer.Utilities;
-using MiddlewarePipeline = ModularHttpServer.Services.MiddlewarePipeline; // Alias for MiddlewarePipeline
+using MiddlewarePipeline = ModularHttpServer.Services.MiddlewarePipeline;
+using ModularHttpServer.Middlewares;
 
 class Program
 {
     static async Task Main(string[] args)
     {
-        var host = CreateHostBuilder(args).Build();
-
-        var logger = host.Services.GetRequiredService<ILogger<HttpServer>>();
-        var router = host.Services.GetRequiredService<IRequestHandler>() as Router;
-        var configuration = host.Services.GetRequiredService<IConfiguration>();
-
-        var url = configuration["HttpServer:Url"];
-        if (string.IsNullOrEmpty(url))
+        while (true)
         {
-            throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.ServerUrlNotConfigured));
-        }
-
-        var server = host.Services.GetRequiredService<HttpServer>();
-
-        var hotReloadEnabled = configuration.GetValue<bool>("HotReload:Enabled");
-        if (hotReloadEnabled)
-        {
-            logger.LogInformation("Hot reload enabled. Watching for file changes...");
-            var fileProvider = new PhysicalFileProvider(AppContext.BaseDirectory);
-            var token = fileProvider.Watch("**/*.cs");
-
-            _ = token.RegisterChangeCallback(state =>
+            try
             {
-                logger.LogInformation("File changes detected. Restarting server...");
-                host.StopAsync().Wait();
-                host.RunAsync().Wait();
-            }, null);
-        }
-        else
-        {
-            logger.LogInformation("Hot reload disabled.");
-        }
+                using var host = CreateHostBuilder(args).Build();
+                var logger = host.Services.GetRequiredService<ILogger<HttpServer>>();
+                var server = host.Services.GetRequiredService<HttpServer>();
 
-        await server.StartAsync();
-        await host.RunAsync();
+                await server.StartAsync();
+                logger.LogInformation("Server started successfully.");
+                await host.RunAsync();
+                break;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during server execution: {ex}");
+                await Task.Delay(1000);
+            }
+        }
     }
 
     public static IHostBuilder CreateHostBuilder(string[] args)
@@ -73,36 +58,48 @@ class Program
                     logger.LogError("Server URL is not configured.");
                     throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.ServerUrlNotConfigured));
                 }
-                return new HttpServer([url], router, logger);
+                return new HttpServer(new[] { url }, router, logger);
             });
 
             // Configure middleware
             _ = services.AddSingleton<LoggingMiddleware>();
-            _ = services.AddSingleton<StaticFiles>(sp =>
+            services.AddSingleton<StaticFiles>(sp =>
             {
-                var rootPath = configuration["StaticFiles:RootPath"];
-                if (!System.IO.Path.IsPathRooted(rootPath))
-                {
-                    rootPath = System.IO.Path.Combine(AppContext.BaseDirectory, rootPath);
-                }
                 var logger = sp.GetRequiredService<ILogger<StaticFiles>>();
-                return new StaticFiles(sp.GetRequiredService<MiddlewarePipeline>().Build(), rootPath, logger);
+                var configuration = sp.GetRequiredService<IConfiguration>();
+                var rootPath = configuration["StaticFiles:RootPath"];
+                if (string.IsNullOrEmpty(rootPath))
+                {
+                    logger.LogError("Static files root path is not configured.");
+                    throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.StaticFilesRootNotConfigured));
+                }
+                rootPath = Path.GetFullPath(rootPath);
+                Console.WriteLine($"Static files root path: {rootPath}");
+                return new StaticFiles(rootPath, logger);
             });
 
-            // Configure pipeline
+            // Configure middleware pipeline
             _ = services.AddSingleton<MiddlewarePipeline>(sp =>
             {
                 var pipeline = new MiddlewarePipeline();
+
+                // Logging middleware
                 pipeline.Use(next => async context =>
                 {
                     var loggingMiddleware = sp.GetRequiredService<LoggingMiddleware>();
                     await loggingMiddleware.InvokeAsync(context, next);
                 });
-                // pipeline.Use(next => async context =>
-                // {
-                //     var staticFiles = sp.GetRequiredService<StaticFiles>();
-                //     await staticFiles.InvokeAsync(context);
-                // });
+
+                // Static files middleware
+                pipeline.Use(next => async context =>
+                {
+                    var staticFiles = sp.GetRequiredService<StaticFiles>();
+                    if (!await staticFiles.TryServeStaticFileAsync(context))
+                    {
+                        await next(context);
+                    }
+                });
+
                 return pipeline;
             });
         });

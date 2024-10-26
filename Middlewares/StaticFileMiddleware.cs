@@ -1,39 +1,58 @@
+using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
 using System.Net;
 using Microsoft.Extensions.Logging;
-public class StaticFiles
+using System.IO;
+
+namespace ModularHttpServer.Middlewares
 {
-    private readonly HttpMiddlewareDelegate _next;
-    private readonly IFileProvider _fileProvider;
-    private readonly ILogger<StaticFiles> _logger;
-
-    public StaticFiles(HttpMiddlewareDelegate next, string rootPath, ILogger<StaticFiles> logger)
+    public class StaticFiles
     {
-        _next = next;
-        _fileProvider = new PhysicalFileProvider(rootPath);
-        _logger = logger;
-    }
+        private readonly string _rootPath;
+        private readonly ILogger<StaticFiles> _logger;
 
-    public async Task InvokeAsync(HttpListenerContext context)
-    {
-        var filePath = context.Request.Url.AbsolutePath.TrimStart('/');
-        _logger.LogInformation($"Attempting to serve file: {filePath}");
-        var fileInfo = _fileProvider.GetFileInfo(filePath);
-
-        if (fileInfo.Exists)
+        public StaticFiles(string rootPath, ILogger<StaticFiles> logger)
         {
-            _logger.LogInformation($"Serving file: {filePath}");
-            context.Response.ContentType = "text/html";
-            using (var stream = fileInfo.CreateReadStream())
-            {
-                await stream.CopyToAsync(context.Response.OutputStream);
-            }
+            _rootPath = rootPath;
+            _logger = logger;
         }
-        else
+
+        public async Task<bool> TryServeStaticFileAsync(HttpListenerContext context)
         {
-            _logger.LogWarning($"File not found: {filePath}");
-            await _next(context);
+            var filePath = Path.Combine(_rootPath, context.Request.Url.AbsolutePath.TrimStart('/'));
+
+            if (File.Exists(filePath))
+            {
+                var response = context.Response;
+                var buffer = await File.ReadAllBytesAsync(filePath);
+
+                response.ContentLength64 = buffer.Length;
+                response.ContentType = GetContentType(filePath);
+
+                await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
+                response.Close();
+                return true;
+            }
+
+            return false;
+        }
+
+        private string GetContentType(string filePath)
+        {
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            return extension switch
+            {
+                ".html" => "text/html",
+                ".css" => "text/css",
+                ".js" => "text/javascript",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".svg" => "image/svg+xml",
+                _ => "application/octet-stream"
+            };
         }
     }
 }
