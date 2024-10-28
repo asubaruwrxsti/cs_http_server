@@ -1,0 +1,31 @@
+using System.Net;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using ModularHttpServer.Utilities.Interfaces;
+
+namespace ModularHttpServer.Middlewares
+{
+    public class AuthMiddleware : IHttpMiddleware
+    {
+        private readonly ILogger<AuthMiddleware> _logger;
+
+        public AuthMiddleware(ILogger<AuthMiddleware> logger)
+        {
+            _logger = logger;
+        }
+
+        public async Task InvokeAsync(HttpListenerContext context, HttpMiddlewareDelegate next)
+        {
+            if (context.Request.Headers["Authorization"] != "Bearer valid_token")
+            {
+                _logger.LogWarning("Unauthorized request: {0}", context.Request.Url);
+                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                await context.Response.OutputStream.WriteAsync(System.Text.Encoding.UTF8.GetBytes("Unauthorized"));
+                context.Response.Close();
+                return;
+            }
+
+            await next(context);
+        }
+    }
+}

@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Arlindi Profile\\Desktop\\cs_http_server\\cs_http_server.csproj": {}
+    "C:\\Users\\arlin\\Desktop\\cs_http_server\\cs_http_server.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Arlindi Profile\\Desktop\\cs_http_server\\cs_http_server.csproj": {
+    "C:\\Users\\arlin\\Desktop\\cs_http_server\\cs_http_server.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Arlindi Profile\\Desktop\\cs_http_server\\cs_http_server.csproj",
+        "projectUniqueName": "C:\\Users\\arlin\\Desktop\\cs_http_server\\cs_http_server.csproj",
         "projectName": "cs_http_server",
-        "projectPath": "C:\\Users\\Arlindi Profile\\Desktop\\cs_http_server\\cs_http_server.csproj",
-        "packagesPath": "C:\\Users\\Arlindi Profile\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Arlindi Profile\\Desktop\\cs_http_server\\obj\\",
+        "projectPath": "C:\\Users\\arlin\\Desktop\\cs_http_server\\cs_http_server.csproj",
+        "packagesPath": "C:\\Users\\arlin\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\arlin\\Desktop\\cs_http_server\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\Arlindi Profile\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\arlin\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -82,6 +82,10 @@
             "Microsoft.Extensions.Logging.Console": {
               "target": "Package",
               "version": "[8.0.1, )"
+            },
+            "MongoDB.Driver": {
+              "target": "Package",
+              "version": "[3.0.0, )"
             }
           },
           "imports": [

@@ -44,11 +44,12 @@ class Program
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .Build();
-            _ = services.AddSingleton<IRequestHandler, Router>();
-            _ = services.AddSingleton<MiddlewarePipeline>();
-            _ = services.AddLogging(configure => configure.AddConsole());
-            _ = services.AddSingleton<IConfiguration>(configuration);
-            _ = services.AddSingleton<HttpServer>(sp =>
+            services.AddSingleton<IRequestHandler, Router>();
+            services.AddSingleton<MiddlewarePipeline>();
+            services.AddLogging(configure => configure.AddConsole());
+            services.AddSingleton<IConfiguration>(configuration);
+            services.AddSingleton(sp => new DbConnection(configuration));
+            services.AddSingleton(sp =>
             {
                 var logger = sp.GetRequiredService<ILogger<HttpServer>>();
                 var router = sp.GetRequiredService<IRequestHandler>() as Router;
@@ -58,12 +59,12 @@ class Program
                     logger.LogError("Server URL is not configured.");
                     throw new InvalidOperationException(ErrorCodes.GetErrorMessage(ErrorCodes.ServerUrlNotConfigured));
                 }
-                return new HttpServer(new[] { url }, router, logger);
+                return new HttpServer([url], router, logger);
             });
 
             // Configure middleware
-            _ = services.AddSingleton<LoggingMiddleware>();
-            services.AddSingleton<StaticFiles>(sp =>
+            services.AddSingleton<LoggingMiddleware>();
+            services.AddSingleton(sp =>
             {
                 var logger = sp.GetRequiredService<ILogger<StaticFiles>>();
                 var configuration = sp.GetRequiredService<IConfiguration>();
@@ -79,7 +80,7 @@ class Program
             });
 
             // Configure middleware pipeline
-            _ = services.AddSingleton<MiddlewarePipeline>(sp =>
+            services.AddSingleton(sp =>
             {
                 var pipeline = new MiddlewarePipeline();
 
@@ -98,6 +99,13 @@ class Program
                     {
                         await next(context);
                     }
+                });
+
+                // Auth middleware
+                pipeline.Use(next => async context =>
+                {
+                    var authMiddleware = sp.GetRequiredService<AuthMiddleware>();
+                    await authMiddleware.InvokeAsync(context, next);
                 });
 
                 return pipeline;

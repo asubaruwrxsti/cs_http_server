@@ -112,3 +112,15 @@ C:\Users\Arlindi Profile\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.AspNe
 C:\Users\Arlindi Profile\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.AspNetCore.Http.Extensions.dll
 C:\Users\Arlindi Profile\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.AspNetCore.StaticFiles.dll
 C:\Users\Arlindi Profile\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.Extensions.WebEncoders.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\wwwroot\public\index.html
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\DnsClient.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.AspNetCore.Hosting.Abstractions.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.AspNetCore.Hosting.Server.Abstractions.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.AspNetCore.Http.Extensions.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.AspNetCore.StaticFiles.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\Microsoft.Extensions.WebEncoders.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\MongoDB.Bson.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\MongoDB.Driver.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\SharpCompress.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\Snappier.dll
+C:\Users\arlin\Desktop\cs_http_server\bin\Debug\net8.0\ZstdSharp.dll

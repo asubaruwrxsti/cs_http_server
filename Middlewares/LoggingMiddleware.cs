@@ -2,19 +2,22 @@ using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
-public class LoggingMiddleware : IHttpMiddleware
+namespace ModularHttpServer.Middlewares
 {
-    private readonly ILogger<LoggingMiddleware> _logger;
-
-    public LoggingMiddleware(ILogger<LoggingMiddleware> logger)
+    public class LoggingMiddleware : IHttpMiddleware
     {
-        _logger = logger;
-    }
+        private readonly ILogger<LoggingMiddleware> _logger;
 
-    public async Task InvokeAsync(HttpListenerContext context, HttpMiddlewareDelegate next)
-    {
-        _logger.LogInformation("Handling request: {0}", context.Request.Url);
-        await next(context);
-        _logger.LogInformation("Finished handling request.");
+        public LoggingMiddleware(ILogger<LoggingMiddleware> logger)
+        {
+            _logger = logger;
+        }
+
+        public async Task InvokeAsync(HttpListenerContext context, HttpMiddlewareDelegate next)
+        {
+            _logger.LogInformation("Handling request: {0}", context.Request.Url);
+            await next(context);
+            _logger.LogInformation("Finished handling request.");
+        }
     }
 }
